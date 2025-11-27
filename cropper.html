@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>6x4 表情包裁剪工具</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 16px;
+      line-height: 1.5;
+    }
+    #thumbs img {
+      max-width: 120px;
+      max-height: 120px;
+      margin: 4px;
+      border: 1px solid #ddd;
+    }
+    button {
+      margin-right: 8px;
+      margin-top: 8px;
+    }
+  </style>
+  <!-- 使用 CDN 引入 JSZip（只这一外部依赖） -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <h1>4x6 表情包裁剪工具</h1>
+  <p>
+    1. 选择一张或多张图片，每张图片中为 4 行 6 列共 24 个表情。<br>
+    2. 本工具会按网格把整张图片平均切成 24 个小表情，并自动加入列表。<br>
+    3. 重复选择文件可继续追加。<br>
+    4. 最后点击“打包下载 ZIP”。
+  </p>
+
+  <input type="file" id="fileInput" accept="image/*" multiple>
+  <br><br>
+  <button id="btnDownload">打包下载 ZIP</button>
+  <button id="btnClear">清空列表</button>
+
+  <h2>已添加的表情预览：</h2>
+  <div id="thumbs"></div>
+
+  <script>
+    // 固定网格：4 行 6 列
+    const ROWS = 4;
+    const COLS = 6;
+
+    const fileInput = document.getElementById('fileInput');
+    const btnDownload = document.getElementById('btnDownload');
+    const btnClear = document.getElementById('btnClear');
+    const thumbs = document.getElementById('thumbs');
+
+    // 已保存的裁剪结果
+    let croppedImages = []; // {blob, name}
+
+    fileInput.addEventListener('change', handleFiles);
+    btnDownload.addEventListener('click', downloadZip);
+    btnClear.addEventListener('click', clearAll);
+
+    function handleFiles(e) {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      files.forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        processFile(file);
+      });
+
+      // 允许重复选择同一批文件
+      fileInput.value = '';
+    }
+
+    function processFile(file) {
+      const reader = new FileReader();
+
+      reader.onload = function (ev) {
+        const img = new Image();
+        img.onload = function () {
+          // 先根据空白区域自动检测有效内容区域，再在该区域内均分 4x6
+          const bounds = detectContentBounds(img);
+          sliceImageGrid(img, ROWS, COLS, bounds, function (blob, index, row, col) {
+            if (!blob) return;
+
+            const globalIndex = croppedImages.length + 1;
+            const baseName = (file.name || 'emoji_' + globalIndex).replace(/\.[^.]+$/, '');
+            const name = baseName + '_r' + (row + 1) + '_c' + (col + 1) + '.png';
+            croppedImages.push({ blob, name });
+
+            // 预览缩略图
+            const url = URL.createObjectURL(blob);
+            const imgel = document.createElement('img');
+            imgel.src = url;
+            imgel.title = name;
+            thumbs.appendChild(imgel);
+          });
+        };
+        img.src = ev.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    // 基于背景色和透明度检测去掉外侧空白的内容区域
+    function detectContentBounds(img) {
+      const W = img.width;
+      const H = img.height;
+      if (!W || !H) {
+        return { x: 0, y: 0, width: W, height: H };
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, W, H);
+      const data = imageData.data;
+
+      function getPixel(x, y) {
+        const idx = (y * W + x) * 4;
+        return {
+          r: data[idx],
+          g: data[idx + 1],
+          b: data[idx + 2],
+          a: data[idx + 3]
+        };
+      }
+
+      // 取四个角的颜色估计背景
+      const cornerSamples = [
+        getPixel(0, 0),
+        getPixel(W - 1, 0),
+        getPixel(0, H - 1),
+        getPixel(W - 1, H - 1)
+      ];
+
+      let bg = null;
+      for (let i = 0; i < cornerSamples.length; i++) {
+        const p = cornerSamples[i];
+        if (p.a > 0) {
+          bg = p;
+          break;
+        }
+      }
+      // 如果四角都是透明，就假定背景是“透明”，只要 alpha 足够大就认为是内容
+      if (!bg) {
+        bg = { r: 255, g: 255, b: 255, a: 0 };
+      }
+
+      const alphaThreshold = 10;      // alpha 小于此值认为是空白
+      const colorTolerance = 10;      // 与背景色差异小于此值认为是空白
+
+      let minX = W;
+      let minY = H;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const idx = (y * W + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const a = data[idx + 3];
+
+          // 透明的像素当作空白
+          if (a <= alphaThreshold) continue;
+
+          const dr = Math.abs(r - bg.r);
+          const dg = Math.abs(g - bg.g);
+          const db = Math.abs(b - bg.b);
+          // 与背景色过于接近也视为空白
+          if (dr <= colorTolerance && dg <= colorTolerance && db <= colorTolerance) {
+            continue;
+          }
+
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      // 如果没有检测到内容，就退回整张图
+      if (maxX < minX || maxY < minY) {
+        return { x: 0, y: 0, width: W, height: H };
+      }
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    // 按 4x6 网格从内容区域中平均切成 24 个小图（严格根据检测后的宽高计算每格大小）
+    function sliceImageGrid(img, rows, cols, bounds, onTile) {
+      const imgW = img.width;
+      const imgH = img.height;
+      if (!imgW || !imgH) {
+        onTile(null);
+        return;
+      }
+
+      const startX = bounds && typeof bounds.x === 'number' ? bounds.x : 0;
+      const startY = bounds && typeof bounds.y === 'number' ? bounds.y : 0;
+      const W = bounds && typeof bounds.width === 'number' ? bounds.width : imgW;
+      const H = bounds && typeof bounds.height === 'number' ? bounds.height : imgH;
+
+      if (W <= 0 || H <= 0) {
+        onTile(null);
+        return;
+      }
+
+      // 整数像素划分，避免小数导致错位
+      const baseTileW = Math.floor(W / cols);
+      const baseTileH = Math.floor(H / rows);
+      const extraW = W - baseTileW * cols; // 余出的像素，平均分配到前几列
+      const extraH = H - baseTileH * rows; // 余出的像素，平均分配到前几行
+
+      let index = 0;
+      let localSy = 0;
+      for (let r = 0; r < rows; r++) {
+        const thisTileH = baseTileH + (r < extraH ? 1 : 0);
+        let localSx = 0;
+        for (let c = 0; c < cols; c++) {
+          const thisTileW = baseTileW + (c < extraW ? 1 : 0);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = thisTileW;
+          canvas.height = thisTileH;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(
+            img,
+            startX + localSx,
+            startY + localSy,
+            thisTileW,
+            thisTileH,
+            0,
+            0,
+            thisTileW,
+            thisTileH
+          );
+
+          canvas.toBlob(function (blob) {
+            onTile(blob, index, r, c);
+          }, 'image/png');
+
+          index++;
+          localSx += thisTileW;
+        }
+        localSy += thisTileH;
+      }
+    }
+
+    function downloadZip() {
+      if (croppedImages.length === 0) {
+        alert('列表为空，请先保存至少一张裁剪图片。');
+        return;
+      }
+      if (typeof JSZip === 'undefined') {
+        alert('JSZip 未加载，检查网络或 CDN。');
+        return;
+      }
+
+      const zip = new JSZip();
+      croppedImages.forEach(item => {
+        zip.file(item.name, item.blob);
+      });
+
+      zip.generateAsync({ type: 'blob' }).then(function (content) {
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'emojis_4x6.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function clearAll() {
+      croppedImages = [];
+      thumbs.innerHTML = '';
+    }
+  </script>
+</body>
+</html>
