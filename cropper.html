@@ -6,39 +6,290 @@
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 16px;
+      margin: 0;
       line-height: 1.5;
+      background: radial-gradient(circle at top left, #1f2937, #020617);
+      color: #0f172a;
     }
-    #thumbs img {
-      max-width: 120px;
-      max-height: 120px;
-      margin: 4px;
-      border: 1px solid #ddd;
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
     }
-    button {
-      margin-right: 8px;
-      margin-top: 8px;
+    .app {
+      width: min(980px, 100%);
+      background: rgba(248, 250, 252, 0.96);
+      border-radius: 14px;
+      padding: 22px 26px 26px;
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 0.65),
+        0 0 0 1px rgba(148, 163, 184, 0.55);
+      box-sizing: border-box;
+      backdrop-filter: blur(12px);
+    }
+    .app-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      color: #020617;
+    }
+    .subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.08);
+      color: #2563eb;
+      border: 1px solid rgba(37, 99, 235, 0.22);
+      align-self: flex-start;
+      white-space: nowrap;
+    }
+    .panel {
+      margin-top: 10px;
+      padding: 12px 12px 10px;
+      border-radius: 10px;
+      background: #e5e7eb;
+      background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+      border: 1px solid rgba(148, 163, 184, 0.8);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.9);
+      background: linear-gradient(180deg, #f9fafb, #e5e7eb);
+      color: #111827;
+      font-size: 13px;
+      padding: 7px 14px;
+      cursor: pointer;
+      outline: none;
+      gap: 6px;
+      transition: all 0.14s ease-out;
+      box-shadow:
+        0 1px 1px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+      user-select: none;
+    }
+    .btn.primary {
+      border-color: rgba(59, 130, 246, 0.9);
+      background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+      color: #f9fafb;
+      box-shadow:
+        0 7px 18px rgba(37, 99, 235, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+    }
+    .btn.ghost {
+      background: linear-gradient(180deg, #f9fafb, #e5e7eb);
+      color: #4b5563;
+    }
+    .btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.14s ease-out;
+    }
+    .btn:hover {
+      transform: translateY(-0.5px);
+      box-shadow:
+        0 10px 22px rgba(15, 23, 42, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+    }
+    .btn:hover::before {
+      opacity: 1;
+    }
+    .btn:active {
+      transform: translateY(0.5px) scale(0.99);
+      box-shadow:
+        0 4px 10px rgba(15, 23, 42, 0.35),
+        0 0 0 1px rgba(148, 163, 184, 0.8) inset;
+    }
+    .btn-icon {
+      font-size: 14px;
+    }
+    .hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hint-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+    }
+    .preview-section {
+      margin-top: 14px;
+    }
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .preview-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .count-pill {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      color: #4b5563;
+      border: 1px solid #d1d5db;
+    }
+    #thumbs {
+      margin-top: 2px;
+      padding: 6px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 8px;
+      max-height: 380px;
+      overflow: auto;
+      box-sizing: border-box;
+    }
+    .thumb-item {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      padding: 4px 4px 6px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 4px;
+      box-sizing: border-box;
+    }
+    .thumb-item img {
+      width: 100%;
+      border-radius: 4px;
+      display: block;
+    }
+    .thumb-label {
+      width: 100%;
+      font-size: 10px;
+      color: #6b7280;
+      text-align: center;
+      word-break: break-all;
+      max-height: 2.8em;
+      overflow: hidden;
+    }
+    @media (max-width: 640px) {
+      .app {
+        padding: 18px 14px 18px;
+      }
+      .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .panel {
+        padding: 10px 10px 8px;
+      }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
   <!-- 使用 CDN 引入 JSZip（只这一外部依赖） -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
-  <h1>4x6 表情包裁剪工具</h1>
-  <p>
-    1. 选择一张或多张图片，每张图片中为 4 行 6 列共 24 个表情。<br>
-    2. 本工具会按网格把整张图片平均切成 24 个小表情，并自动加入列表。<br>
-    3. 重复选择文件可继续追加。<br>
-    4. 最后点击“打包下载 ZIP”。
-  </p>
+  <div class="app-shell">
+    <div class="app">
+      <div class="app-header">
+        <div>
+          <h1>4x6 表情包裁剪工具</h1>
+          <p class="subtitle">
+            上传一张包含 4 行 × 6 列表情的大图，自动去掉边缘空白并均分成 24 个小表情，最后一键打包下载。
+          </p>
+        </div>
+        <div class="badge">自动网格裁剪 × ZIP 打包</div>
+      </div>
 
-  <input type="file" id="fileInput" accept="image/*" multiple>
-  <br><br>
-  <button id="btnDownload">打包下载 ZIP</button>
-  <button id="btnClear">清空列表</button>
+      <div class="panel">
+        <div class="toolbar">
+          <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
+          <label for="fileInput" class="btn primary">
+            <span class="btn-icon">📁</span>
+            <span>选择图片（可多选）</span>
+          </label>
+          <button id="btnDownload" class="btn">
+            <span class="btn-icon">📦</span>
+            <span>打包下载 ZIP</span>
+          </button>
+          <button id="btnClear" class="btn ghost">
+            <span class="btn-icon">🧹</span>
+            <span>清空列表</span>
+          </button>
+        </div>
+        <div class="hint">
+          <span class="hint-dot"></span>
+          <span>每张图片会被识别内容区域后平均切成 24 个小表情；适用于整齐的 4×6 表情拼图。</span>
+        </div>
+      </div>
 
-  <h2>已添加的表情预览：</h2>
-  <div id="thumbs"></div>
+      <div class="preview-section">
+        <div class="preview-header">
+          <h2 class="preview-title">已添加的表情</h2>
+          <span id="emojiCount" class="count-pill">0 张</span>
+        </div>
+        <div id="thumbs"></div>
+      </div>
+    </div>
+  </div>
 
   <script>
     // 固定网格：4 行 6 列
@@ -49,6 +300,7 @@
     const btnDownload = document.getElementById('btnDownload');
     const btnClear = document.getElementById('btnClear');
     const thumbs = document.getElementById('thumbs');
+    const emojiCountEl = document.getElementById('emojiCount');
 
     // 已保存的裁剪结果
     let croppedImages = []; // {blob, name}
@@ -56,6 +308,11 @@
     fileInput.addEventListener('change', handleFiles);
     btnDownload.addEventListener('click', downloadZip);
     btnClear.addEventListener('click', clearAll);
+
+    function updateCount() {
+      if (!emojiCountEl) return;
+      emojiCountEl.textContent = croppedImages.length + ' 张';
+    }
 
     function handleFiles(e) {
       const files = Array.from(e.target.files || []);
@@ -88,10 +345,22 @@
 
             // 预览缩略图
             const url = URL.createObjectURL(blob);
+            const item = document.createElement('div');
+            item.className = 'thumb-item';
+
             const imgel = document.createElement('img');
             imgel.src = url;
             imgel.title = name;
-            thumbs.appendChild(imgel);
+
+            const label = document.createElement('div');
+            label.className = 'thumb-label';
+            label.textContent = name;
+
+            item.appendChild(imgel);
+            item.appendChild(label);
+            thumbs.appendChild(item);
+
+            updateCount();
           });
         };
         img.src = ev.target.result;
@@ -285,6 +554,7 @@
     function clearAll() {
       croppedImages = [];
       thumbs.innerHTML = '';
+      updateCount();
     }
   </script>
 </body>
