@@ -73,6 +73,39 @@
       align-items: center;
       gap: 10px;
     }
+    .dropzone {
+      position: relative;
+      flex: 1 1 260px;
+      min-height: 84px;
+      border-radius: 12px;
+      border: 1px dashed rgba(148, 163, 184, 0.9);
+      background: linear-gradient(135deg, #f9fafb, #e5e7eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      box-sizing: border-box;
+      cursor: pointer;
+      transition: all 0.16s ease-out;
+    }
+    .dropzone-inner {
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #111827;
+      font-size: 13px;
+    }
+    .dropzone-icon {
+      font-size: 20px;
+    }
+    .dropzone-text-main {
+      font-weight: 600;
+    }
+    .dropzone-text-sub {
+      font-size: 12px;
+      color: #6b7280;
+    }
     .file-input {
       position: absolute;
       width: 1px;
@@ -102,6 +135,14 @@
         0 1px 1px rgba(15, 23, 42, 0.08),
         0 0 0 1px rgba(255, 255, 255, 0.7) inset;
       user-select: none;
+    }
+    .dropzone.dragover {
+      border-style: solid;
+      border-color: rgba(59, 130, 246, 0.95);
+      box-shadow:
+        0 0 0 1px rgba(37, 99, 235, 0.2),
+        0 10px 25px rgba(15, 23, 42, 0.2);
+      background: linear-gradient(135deg, #eff6ff, #e0ecff);
     }
     .btn.primary {
       border-color: rgba(59, 130, 246, 0.9);
@@ -262,10 +303,15 @@
       <div class="panel">
         <div class="toolbar">
           <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
-          <label for="fileInput" class="btn primary">
-            <span class="btn-icon">📁</span>
-            <span>选择图片（可多选）</span>
-          </label>
+          <div id="dropzone" class="dropzone">
+            <div class="dropzone-inner">
+              <div class="dropzone-icon">📁</div>
+              <div>
+                <div class="dropzone-text-main">拖拽图片到此处</div>
+                <div class="dropzone-text-sub">或点击选择文件（可多选）</div>
+              </div>
+            </div>
+          </div>
           <button id="btnDownload" class="btn">
             <span class="btn-icon">📦</span>
             <span>打包下载 ZIP</span>
@@ -297,6 +343,7 @@
     const COLS = 6;
 
     const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
     const btnDownload = document.getElementById('btnDownload');
     const btnClear = document.getElementById('btnClear');
     const thumbs = document.getElementById('thumbs');
@@ -309,19 +356,62 @@
     btnDownload.addEventListener('click', downloadZip);
     btnClear.addEventListener('click', clearAll);
 
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(function (eventName) {
+        dropzone.addEventListener(eventName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (eventName === 'drop') {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+              handleFileList(dt.files);
+            }
+          }
+          dropzone.classList.remove('dragover');
+        });
+      });
+
+      dropzone.addEventListener('click', function () {
+        if (fileInput) {
+          fileInput.click();
+        }
+      });
+    }
+
+    ['dragenter', 'dragover', 'drop'].forEach(function (eventName) {
+      document.addEventListener(eventName, function (e) {
+        // 防止浏览器在窗口其他位置打开文件
+        if (eventName === 'dragenter' || eventName === 'dragover' || eventName === 'drop') {
+          e.preventDefault();
+        }
+      });
+    });
+
     function updateCount() {
       if (!emojiCountEl) return;
       emojiCountEl.textContent = croppedImages.length + ' 张';
     }
 
-    function handleFiles(e) {
-      const files = Array.from(e.target.files || []);
+    function handleFileList(fileList) {
+      const files = Array.from(fileList || []);
       if (!files.length) return;
 
       files.forEach(file => {
         if (!file.type.startsWith('image/')) return;
         processFile(file);
       });
+    }
+
+    function handleFiles(e) {
+      handleFileList(e.target.files || []);
 
       // 允许重复选择同一批文件
       fileInput.value = '';
