@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>6x4 表情包裁剪工具</title>
+  <title>表情包裁剪工具（自动网格）</title>
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -72,6 +72,76 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 10px;
+    }
+    .grid-config {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(209, 213, 219, 0.9);
+      background: linear-gradient(135deg, #f9fafb, #eef2ff);
+      min-width: 180px;
+      box-sizing: border-box;
+      font-size: 12px;
+      color: #374151;
+    }
+    .grid-config-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .grid-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .grid-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #4b5563;
+    }
+    .grid-toggle input {
+      margin: 0;
+      width: 12px;
+      height: 12px;
+    }
+    .grid-toggle-text {
+      user-select: none;
+    }
+    .grid-inputs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .grid-input-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .grid-input {
+      width: 44px;
+      padding: 2px 4px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 12px;
+      color: #111827;
+      background: #f9fafb;
+      box-sizing: border-box;
+    }
+    .grid-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #f3f4f6;
+    }
+    .grid-multiply {
+      font-size: 12px;
+      color: #6b7280;
     }
     .dropzone {
       position: relative;
@@ -292,9 +362,9 @@
     <div class="app">
       <div class="app-header">
         <div>
-          <h1>4x6 表情包裁剪工具</h1>
+          <h1>表情包裁剪工具</h1>
           <p class="subtitle">
-            上传一张包含 4 行 × 6 列表情的大图，自动去掉边缘空白并均分成 24 个小表情，最后一键打包下载。
+            上传一张按规则网格排布的表情大图，自动去掉边缘空白并识别行列，均分成多个小表情，最后一键打包下载。
           </p>
         </div>
         <div class="badge">自动网格裁剪 × ZIP 打包</div>
@@ -312,6 +382,26 @@
               </div>
             </div>
           </div>
+          <div id="gridConfig" class="grid-config">
+            <div class="grid-config-row">
+              <span class="grid-label">网格</span>
+	              <label class="grid-toggle">
+	                <input type="checkbox" id="gridManual" checked>
+	                <span class="grid-toggle-text">手动设置</span>
+	              </label>
+            </div>
+            <div class="grid-inputs">
+              <label class="grid-input-label">
+                行
+                <input type="number" id="rowsInput" min="1" max="20" value="4" class="grid-input">
+              </label>
+              <span class="grid-multiply">×</span>
+              <label class="grid-input-label">
+                列
+                <input type="number" id="colsInput" min="1" max="20" value="6" class="grid-input">
+              </label>
+            </div>
+          </div>
           <button id="btnDownload" class="btn">
             <span class="btn-icon">📦</span>
             <span>打包下载 ZIP</span>
@@ -323,7 +413,7 @@
         </div>
         <div class="hint">
           <span class="hint-dot"></span>
-          <span>每张图片会被识别内容区域后平均切成 24 个小表情；适用于整齐的 4×6 表情拼图。</span>
+          <span>默认使用手动填写的“行 × 列”进行裁剪；如取消勾选则自动识别内容区域和网格行列数，适用于整齐排布的表情拼图。</span>
         </div>
       </div>
 
@@ -337,13 +427,17 @@
     </div>
   </div>
 
-  <script>
-    // 固定网格：4 行 6 列
-    const ROWS = 4;
-    const COLS = 6;
+	  <script>
+	    // 默认网格（在自动识别失败时退回）
+	    const DEFAULT_ROWS = 4;
+	    const DEFAULT_COLS = 6;
 
     const fileInput = document.getElementById('fileInput');
     const dropzone = document.getElementById('dropzone');
+    const gridConfig = document.getElementById('gridConfig');
+    const gridManual = document.getElementById('gridManual');
+    const rowsInput = document.getElementById('rowsInput');
+    const colsInput = document.getElementById('colsInput');
     const btnDownload = document.getElementById('btnDownload');
     const btnClear = document.getElementById('btnClear');
     const thumbs = document.getElementById('thumbs');
@@ -395,6 +489,19 @@
       });
     });
 
+    if (gridManual && rowsInput && colsInput) {
+      function syncGridInputsDisabled() {
+        const manual = !!gridManual.checked;
+        rowsInput.disabled = !manual;
+        colsInput.disabled = !manual;
+        if (gridConfig) {
+          gridConfig.classList.toggle('grid-manual-on', manual);
+        }
+      }
+      gridManual.addEventListener('change', syncGridInputsDisabled);
+      syncGridInputsDisabled();
+    }
+
     function updateCount() {
       if (!emojiCountEl) return;
       emojiCountEl.textContent = croppedImages.length + ' 张';
@@ -423,9 +530,26 @@
       reader.onload = function (ev) {
         const img = new Image();
         img.onload = function () {
-          // 先根据空白区域自动检测有效内容区域，再在该区域内均分 4x6
-          const bounds = detectContentBounds(img);
-          sliceImageGrid(img, ROWS, COLS, bounds, function (blob, index, row, col) {
+          // 默认使用自动识别的内容区域和网格行列数，如勾选手动则用用户输入的行列
+          const layout = detectGridLayout(img);
+          const bounds = layout.bounds;
+
+          let rows = layout.rows || DEFAULT_ROWS;
+          let cols = layout.cols || DEFAULT_COLS;
+
+          if (gridManual && gridManual.checked && rowsInput && colsInput) {
+            const manualRows = parseInt(rowsInput.value, 10);
+            const manualCols = parseInt(colsInput.value, 10);
+
+            if (manualRows && manualRows > 0 && manualRows <= 20) {
+              rows = manualRows;
+            }
+            if (manualCols && manualCols > 0 && manualCols <= 20) {
+              cols = manualCols;
+            }
+          }
+
+          sliceImageGrid(img, rows, cols, bounds, function (blob, index, row, col) {
             if (!blob) return;
 
             const globalIndex = croppedImages.length + 1;
@@ -459,12 +583,16 @@
       reader.readAsDataURL(file);
     }
 
-    // 基于背景色和透明度检测去掉外侧空白的内容区域
-    function detectContentBounds(img) {
+    // 基于背景色和透明度检测内容区域，并根据投影自动估算网格行列数
+    function detectGridLayout(img) {
       const W = img.width;
       const H = img.height;
       if (!W || !H) {
-        return { x: 0, y: 0, width: W, height: H };
+        return {
+          bounds: { x: 0, y: 0, width: W, height: H },
+          rows: 1,
+          cols: 1
+        };
       }
 
       const canvas = document.createElement('canvas');
@@ -515,6 +643,12 @@
       let maxX = -1;
       let maxY = -1;
 
+      const projX = new Array(W);
+      const projY = new Array(H);
+      for (let i = 0; i < W; i++) projX[i] = 0;
+      for (let j = 0; j < H; j++) projY[j] = 0;
+
+      // 遍历整张图：同时统计内容边界和 X/Y 方向上的投影
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const idx = (y * W + x) * 4;
@@ -538,23 +672,85 @@
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
           if (y > maxY) maxY = y;
+
+          projX[x]++;
+          projY[y]++;
         }
       }
 
-      // 如果没有检测到内容，就退回整张图
+      // 如果没有检测到内容，就退回整张图，行列视为 1x1
       if (maxX < minX || maxY < minY) {
-        return { x: 0, y: 0, width: W, height: H };
+        return {
+          bounds: { x: 0, y: 0, width: W, height: H },
+          rows: 1,
+          cols: 1
+        };
       }
 
-      return {
+      const bounds = {
         x: minX,
         y: minY,
         width: maxX - minX + 1,
         height: maxY - minY + 1
       };
+
+      function estimateCount(proj, start, end) {
+        let maxVal = 0;
+        for (let i = start; i <= end; i++) {
+          if (proj[i] > maxVal) maxVal = proj[i];
+        }
+        if (maxVal === 0) return 1;
+
+        // 小于此阈值的列/行视为“分隔缝隙”
+        const gapThreshold = Math.max(1, maxVal * 0.08); // 8% 的内容量
+
+        let gaps = 0;
+        let inGap = false;
+        let gapWidth = 0;
+
+        for (let i = start; i <= end; i++) {
+          const val = proj[i];
+          const isGap = val <= gapThreshold;
+
+          if (isGap) {
+            gapWidth++;
+            if (!inGap) {
+              inGap = true;
+            }
+          } else if (inGap) {
+            // 一段缝隙结束
+            if (gapWidth >= 1) {
+              gaps++;
+            }
+            inGap = false;
+            gapWidth = 0;
+          }
+        }
+
+        const cells = gaps + 1;
+        return cells;
+      }
+
+      let cols = estimateCount(projX, minX, maxX);
+      let rows = estimateCount(projY, minY, maxY);
+
+      if (!rows || rows < 1) rows = 1;
+      if (!cols || cols < 1) cols = 1;
+
+      // 极端情况下做个简单保护，避免误判出离谱的网格数量
+      if (rows * cols > 60) {
+        rows = DEFAULT_ROWS;
+        cols = DEFAULT_COLS;
+      }
+
+      return {
+        bounds: bounds,
+        rows: rows,
+        cols: cols
+      };
     }
 
-    // 按 4x6 网格从内容区域中平均切成 24 个小图（严格根据检测后的宽高计算每格大小）
+    // 按自动识别 / 手动指定的网格，从内容区域中平均切成小图（严格根据检测后的宽高计算每格大小）
     function sliceImageGrid(img, rows, cols, bounds, onTile) {
       const imgW = img.width;
       const imgH = img.height;
@@ -755,7 +951,7 @@
         const url = URL.createObjectURL(content);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'emojis_4x6.zip';
+        a.download = 'emojis_grid.zip';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -19,7 +19,7 @@
 
 ## Testing Guidelines
 - There is no automated test suite; rely on manual testing.
-- Verify that uploading a 4×6 emoji grid produces 24 centered tiles and a valid ZIP download.
+- Verify that uploading a well-aligned emoji grid (for example 4×6) produces rows × columns centered tiles and a valid ZIP download.
 - Test edge cases: transparent backgrounds, large images, nearly full-bleed content, and multiple files.
 - Confirm that count labels and thumbnails update correctly when clearing and re-adding images.
 
